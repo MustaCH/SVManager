@@ -6,6 +6,7 @@ export async function GET() {
   await connectDB();
 
   const products = await Prod.find();
+  console.log(products);
   return NextResponse.json(products);
 }
 
@@ -13,6 +14,7 @@ export async function POST(req: NextRequest) {
   await connectDB();
   const data = await req.json();
 
-  const products = await Prod.create(data);
-  return NextResponse.json(products);
+  const product = await Prod.create(data);
+  console.log(data);
+  return NextResponse.json(product);
 }
