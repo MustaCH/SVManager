@@ -18,3 +18,12 @@ export async function POST(req: NextRequest) {
   console.log(data);
   return NextResponse.json(product);
 }
+
+export async function DELETE(req: NextRequest) {
+  await connectDB();
+  const data = await req.json();
+
+  const product = await Prod.deleteOne(data);
+  console.log(data);
+  return NextResponse.json(product);
+}

@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { FormEvent, useState } from "react";
 import {
   Table,
   TableHeader,
@@ -10,10 +12,13 @@ import {
   Chip,
   Tooltip,
   ChipProps,
+  Button,
+  useDisclosure,
 } from "@nextui-org/react";
 import { FaEye } from "react-icons/fa";
 import { MdDelete, MdEdit } from "react-icons/md";
 import { AiOutlineDollar } from "react-icons/ai";
+import Modal from "../modal";
 
 const statusColorMap: Record<string, ChipProps["color"]> = {
   active: "success",
@@ -35,6 +40,13 @@ interface ProductListItemProps {
 }
 
 const ProductListItem: React.FC<ProductListItemProps> = ({ products }) => {
+  const { onOpenChange } = useDisclosure();
+  const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
+  const [editOpen, setEditOpen] = useState<boolean>(false);
+  const [sellOpen, setSellOpen] = useState<boolean>(false);
+
+  console.log("Products:", products); // Añade esto para inspeccionar los datos
+
   const renderCell = React.useCallback(
     (product: Product, columnKey: React.Key) => {
       const cellValue = product[columnKey as keyof Product];
@@ -80,7 +92,9 @@ const ProductListItem: React.FC<ProductListItemProps> = ({ products }) => {
               </Tooltip>
               <Tooltip color="danger" content="Borrar producto">
                 <span className="text-2xl md:text-xl text-danger cursor-pointer active:opacity-50">
-                  <MdDelete />
+                  <Button className="bg-transparent text-danger">
+                    <MdDelete />
+                  </Button>
                 </span>
               </Tooltip>
             </div>

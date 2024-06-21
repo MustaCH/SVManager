@@ -20,9 +20,9 @@ const ProductListContainer: React.FC = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch("/api/products"); // Ajusta la ruta según tu configuración
+        const response = await fetch("/api/products");
         const data = await response.json();
-        console.log(data); // Verifica la estructura de los datos aquí
+        console.log(data);
         setProducts(data);
         setLoading(false);
       } catch (error) {
@@ -43,13 +43,13 @@ const ProductListContainer: React.FC = () => {
   }
 
   return (
-    <>
+    <div className="py-12">
       <div className="flex flex-col text-center">
         <h2 className="text-4xl font-semibold">Listado de productos</h2>
         <Divider className="my-4" />
       </div>
-      <ProductListItem products={products} />;
-    </>
+      <ProductListItem products={products} />
+    </div>
   );
 };
 

@@ -1,6 +1,6 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
 
-interface IProduct extends Document {
+export interface IProduct extends Document {
   name: string;
   price: number;
   measures: string[];
