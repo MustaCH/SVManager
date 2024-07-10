@@ -13,11 +13,13 @@ export async function GET() {
   return NextResponse.json(products, { status: 200 });
 }
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export const dynamic = "auto";
+export const dynamicParams = true;
+export const revalidate = false;
+export const fetchCache = "auto";
+export const runtime = "nodejs";
+export const preferredRegion = "auto";
+export const maxDuration = 5;
 
 // Helper function to convert NextRequest to IncomingMessage
 async function convertNextRequestToIncomingMessage(
