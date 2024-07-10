@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@nextui-org/react": "^2.3.6",
+    "@types/formidable": "^3.4.5",
     "formidable": "^3.5.1",
     "framer-motion": "^11.2.2",
     "mongodb": "^6.6.2",
