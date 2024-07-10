@@ -110,23 +110,22 @@ export default function ProductFormContainer({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const category = showCategoryInput ? formData.category : formData.category;
 
-    const formDataToSend = new FormData();
-    formDataToSend.append("name", formData.name);
-    formDataToSend.append("price", formData.price.toString());
-    formDataToSend.append("category", formData.category);
+    const form = new FormData();
+    form.append("name", formData.name);
+    form.append("price", formData.price.toString());
+    form.append("category", formData.category);
     formData.measures.forEach((measure, index) => {
-      formDataToSend.append(`measures[${index}]`, measure);
+      form.append(`measures[${index}]`, measure);
     });
     formData.pics.forEach((pic, index) => {
-      formDataToSend.append(`pics`, pic);
+      form.append(`pics`, pic);
     });
 
     try {
       const response = await fetch("/api/products", {
         method: "POST",
-        body: formDataToSend,
+        body: form,
       });
       const data = await response.json();
       console.log(data);
@@ -166,7 +165,7 @@ export default function ProductFormContainer({
         <div className="flex items-center gap-6">
           <Input
             type="text"
-            label="Crear categoría"
+            label="Categoría"
             name="category"
             value={formData.category}
             onChange={handleChange}
@@ -177,8 +176,7 @@ export default function ProductFormContainer({
             disabled={categories.length === 0}
             onClick={() => setShowCategoryInput(false)}
           >
-            Seleccionar
-            <br /> existente
+            Seleccionar existente
           </Button>
         </div>
       ) : (
@@ -211,10 +209,9 @@ export default function ProductFormContainer({
       <Divider />
       <div className="flex flex-col gap-4">
         <label>{selectedCategory === "Calzado" ? "Talle:" : "Medidas:"}</label>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="flex gap-4">
           {selectedCategory === "Calzado" ? (
             <Select
-              className="col-span-2"
               placeholder="Selecciona talle"
               value={formData.measures[0]}
               onChange={(e) => handleMeasureChange(0, e.target.value)}
@@ -239,15 +236,10 @@ export default function ProductFormContainer({
         </div>
       </div>
       <Divider />
-      <label htmlFor="pictures">Fotos de producto</label>
-      <input
-        id="pictures"
-        name="pictures"
-        aria-label="pictures"
-        type="file"
-        multiple
-        onChange={handleFileChange}
-      />
+      <div className="flex flex-col gap-4">
+        <label>Imágenes del producto:</label>
+        <input type="file" name="pics" multiple onChange={handleFileChange} />
+      </div>
       <Divider />
       <Button color="primary" onClick={handleSubmit}>
         Cargar producto

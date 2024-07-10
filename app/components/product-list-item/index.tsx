@@ -55,7 +55,7 @@ const ProductListItem: React.FC<ProductListItemProps> = ({ products }) => {
         case "name":
           return (
             <User
-              avatarProps={{ radius: "lg", src: "" }}
+              avatarProps={{ radius: "lg", src: `${product.pics[0]}` }}
               description={`$${product.price}`}
               name={cellValue}
             />
