@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useEffect, ChangeEvent, FormEvent } from "react";
-import { Button, Divider, Input, Select, SelectItem } from "@nextui-org/react";
+import {
+  Button,
+  Divider,
+  Image,
+  Input,
+  Select,
+  SelectItem,
+} from "@nextui-org/react";
+import { IoMdClose } from "react-icons/io";
 
 interface FormData {
   name: string;
@@ -9,6 +17,7 @@ interface FormData {
   measures: string[];
   category: string;
   pics: File[];
+  sets: { name: string; measures: string[] }[];
 }
 
 interface Product {
@@ -33,6 +42,7 @@ export default function ProductFormContainer({
     measures: ["", "", "", ""],
     category: "",
     pics: [],
+    sets: [],
   });
 
   const [products, setProducts] = useState<Product[]>(initialProducts);
@@ -41,6 +51,7 @@ export default function ProductFormContainer({
   const [showCategoryInput, setShowCategoryInput] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [createdProduct, setCreatedProduct] = useState<boolean>(false);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -88,10 +99,14 @@ export default function ProductFormContainer({
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setFormData({
-        ...formData,
-        pics: Array.from(e.target.files),
-      });
+      const newFiles = Array.from(e.target.files);
+      setFormData((prevData) => ({
+        ...prevData,
+        pics: [...prevData.pics, ...newFiles],
+      }));
+
+      const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
+      setPreviewImages((prevPreviews) => [...prevPreviews, ...newPreviews]);
     }
   };
 
@@ -108,6 +123,43 @@ export default function ProductFormContainer({
     });
   };
 
+  const handleDeleteImage = (index: number) => {
+    setFormData((prevData) => {
+      const newPics = [...prevData.pics];
+      newPics.splice(index, 1);
+      return { ...prevData, pics: newPics };
+    });
+
+    setPreviewImages((prevPreviews) => {
+      const newPreviews = [...prevPreviews];
+      newPreviews.splice(index, 1);
+      return newPreviews;
+    });
+  };
+
+  const addNewSet = () => {
+    setFormData((prevData) => ({
+      ...prevData,
+      sets: [...prevData.sets, { name: "", measures: ["", "", "", ""] }],
+    }));
+  };
+
+  const handleSetNameChange = (index: number, value: string) => {
+    const newSets = [...formData.sets];
+    newSets[index].name = value;
+    setFormData({ ...formData, sets: newSets });
+  };
+
+  const handleSetMeasureChange = (
+    setIndex: number,
+    measureIndex: number,
+    value: string
+  ) => {
+    const newSets = [...formData.sets];
+    newSets[setIndex].measures[measureIndex] = value;
+    setFormData({ ...formData, sets: newSets });
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -118,8 +170,14 @@ export default function ProductFormContainer({
     formData.measures.forEach((measure, index) => {
       form.append(`measures[${index}]`, measure);
     });
-    formData.pics.forEach((pic, index) => {
-      form.append(`pics`, pic);
+    formData.pics.forEach((pic) => {
+      form.append("pics", pic);
+    });
+    formData.sets.forEach((set, index) => {
+      form.append(`sets[${index}][name]`, set.name);
+      set.measures.forEach((measure, measureIndex) => {
+        form.append(`sets[${index}][measures][${measureIndex}]`, measure);
+      });
     });
 
     try {
@@ -207,38 +265,103 @@ export default function ProductFormContainer({
         </div>
       )}
       <Divider />
+
       <div className="flex flex-col gap-4">
         <label>{selectedCategory === "Calzado" ? "Talle:" : "Medidas:"}</label>
         <div className="flex gap-4">
-          {selectedCategory === "Calzado" ? (
-            <Select
-              placeholder="Selecciona talle"
-              value={formData.measures[0]}
-              onChange={(e) => handleMeasureChange(0, e.target.value)}
-            >
-              {shoeSizes.map((size) => (
-                <SelectItem key={size} value={size}>
-                  {size}
-                </SelectItem>
+          {selectedCategory === "Sets" && (
+            <div className="flex flex-col gap-4">
+              {formData.sets.map((set, setIndex) => (
+                <div key={setIndex} className="flex flex-col gap-4">
+                  <Input
+                    type="text"
+                    label={`Nombre prenda ${setIndex + 1}`}
+                    value={set.name}
+                    onChange={(e) =>
+                      handleSetNameChange(setIndex, e.target.value)
+                    }
+                  />
+                  <div className="flex gap-4">
+                    {set.measures.map((measure, measureIndex) => (
+                      <Input
+                        key={measureIndex}
+                        type="text"
+                        label={`Medida ${measureIndex + 1}`}
+                        value={measure}
+                        onChange={(e) =>
+                          handleSetMeasureChange(
+                            setIndex,
+                            measureIndex,
+                            e.target.value
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                  <Divider />
+                </div>
               ))}
-            </Select>
-          ) : (
-            formData.measures.map((measure, index) => (
-              <Input
-                key={index}
-                type="text"
-                label={`Medida ${index + 1}`}
-                value={measure}
-                onChange={(e) => handleMeasureChange(index, e.target.value)}
-              />
-            ))
+              <Button color="primary" onClick={addNewSet}>
+                Agregar prenda
+              </Button>
+            </div>
           )}
+          <div
+            className={`${
+              selectedCategory === "Sets" ? "hidden" : "flex gap-4"
+            }`}
+          >
+            {selectedCategory === "Calzado" ? (
+              <Select
+                placeholder="Selecciona talle"
+                value={formData.measures[0]}
+                onChange={(e) => handleMeasureChange(0, e.target.value)}
+              >
+                {shoeSizes.map((size) => (
+                  <SelectItem key={size} value={size}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </Select>
+            ) : (
+              formData.measures.map((measure, index) => (
+                <Input
+                  key={index}
+                  type="text"
+                  label={`Medida ${index + 1}`}
+                  value={measure}
+                  onChange={(e) => handleMeasureChange(index, e.target.value)}
+                />
+              ))
+            )}
+          </div>
         </div>
       </div>
       <Divider />
       <div className="flex flex-col gap-4">
         <label>Imágenes del producto:</label>
         <input type="file" name="pics" multiple onChange={handleFileChange} />
+        <div className="flex gap-4 mt-4">
+          {previewImages.map((src, index) => (
+            <div key={index} className="relative">
+              <Image
+                isBlurred
+                src={src}
+                alt={`Preview ${index + 1}`}
+                width="100"
+              />
+              <Button
+                isIconOnly
+                className="rounded-full absolute top-0 right-0 z-50 "
+                color="danger"
+                aria-label="delete"
+                onClick={() => handleDeleteImage(index)}
+              >
+                <IoMdClose color="white" />
+              </Button>
+            </div>
+          ))}
+        </div>
       </div>
       <Divider />
       <Button color="primary" onClick={handleSubmit}>

@@ -1,9 +1,17 @@
 import { connectDB } from "@/data";
 import Prod from "@/models/products";
 import { NextRequest, NextResponse } from "next/server";
-import formidable, { Fields, Files, IncomingForm } from "formidable";
+import cloudinary from "cloudinary";
 import { Readable } from "stream";
-import { IncomingMessage } from "http";
+import { parse } from "url";
+import busboy from "busboy";
+
+// Configure Cloudinary
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export async function GET() {
   await connectDB();
@@ -13,101 +21,129 @@ export async function GET() {
   return NextResponse.json(products, { status: 200 });
 }
 
-export const dynamic = "auto";
-export const dynamicParams = true;
-export const revalidate = false;
-export const fetchCache = "auto";
-export const runtime = "nodejs";
-export const preferredRegion = "auto";
-export const maxDuration = 5;
-
-// Helper function to convert NextRequest to IncomingMessage
-async function convertNextRequestToIncomingMessage(
-  req: NextRequest
-): Promise<IncomingMessage> {
-  const { headers, method } = req;
-  const body = await req.text();
-  const readable = new Readable();
-
-  readable._read = () => {};
-  readable.push(Buffer.from(body));
-  readable.push(null);
-
-  const incomingMessage = Object.assign(readable, {
-    headers: Object.fromEntries(headers.entries()),
-    method,
-  });
-
-  return incomingMessage as IncomingMessage;
-}
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 export async function POST(req: NextRequest) {
   await connectDB();
 
-  const incomingMessage = await convertNextRequestToIncomingMessage(req);
+  const parsedUrl = parse(req.url || "", true);
+  const query = parsedUrl.query;
 
-  const form = new IncomingForm({
-    uploadDir: "./public/uploads",
-    keepExtensions: true,
-  });
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of req.body as any) {
+    chunks.push(chunk);
+  }
+  const buffer = Buffer.concat(chunks);
 
-  return new Promise((resolve) => {
-    form.parse(
-      incomingMessage,
-      async (err: any, fields: Fields, files: Files) => {
-        if (err) {
-          console.error(err);
-          return resolve(
-            NextResponse.json({ error: err.message }, { status: 500 })
-          );
-        }
+  const contentType = req.headers.get("content-type") || "";
+  if (!contentType.includes("multipart/form-data")) {
+    return NextResponse.json(
+      { error: "Unsupported content type" },
+      { status: 400 }
+    );
+  }
 
-        try {
-          const name = Array.isArray(fields.name)
-            ? fields.name[0]
-            : fields.name;
-          const price = Array.isArray(fields.price)
-            ? fields.price[0]
-            : fields.price;
-          const category = Array.isArray(fields.category)
-            ? fields.category[0]
-            : fields.category;
+  return new Promise((resolve, reject) => {
+    const fields: any = {};
+    const filePromises: Promise<string>[] = [];
+    const bb = busboy({ headers: { "content-type": contentType } });
 
-          // Ensure measures is a string before calling split
-          const measures = Array.isArray(fields.measures)
-            ? fields.measures
-            : typeof fields.measures === "string"
-            ? fields.measures
-            : [];
+    bb.on(
+      "file",
+      (
+        name: string,
+        file: Readable,
+        info: { filename: string; encoding: string; mimeType: string }
+      ) => {
+        const { filename, mimeType } = info;
+        const fileChunks: Buffer[] = [];
 
-          if (!name || !price || !category) {
-            return resolve(
-              NextResponse.json(
-                { error: "Missing required fields" },
-                { status: 400 }
+        file.on("data", (chunk: Buffer) => {
+          fileChunks.push(chunk);
+        });
+
+        file.on("end", async () => {
+          const fileBuffer = Buffer.concat(fileChunks);
+          const filePromise = new Promise<string>((resolve, reject) => {
+            cloudinary.v2.uploader
+              .upload_stream(
+                { resource_type: "image" },
+                (error, result: any) => {
+                  if (error) {
+                    console.error("Cloudinary upload error:", error);
+                    return reject(error);
+                  }
+                  resolve(result.secure_url);
+                }
               )
-            );
-          }
+              .end(fileBuffer);
+          });
 
-          const data = {
-            name: name as string,
-            price: parseFloat(price as string),
-            measures: measures as string[],
-            category: category as string,
-            pics: Object.values(files).map((file: any) => file.filepath),
-          };
-
-          const product = await Prod.create(data);
-          console.log(data);
-          return resolve(NextResponse.json(product, { status: 201 }));
-        } catch (error: any) {
-          console.error(error);
-          return resolve(
-            NextResponse.json({ error: error.message }, { status: 500 })
-          );
-        }
+          filePromises.push(filePromise);
+        });
       }
     );
+
+    bb.on("field", (name: string, value: string) => {
+      if (name.startsWith("measures[") && name.endsWith("]")) {
+        if (!fields.measures) {
+          fields.measures = [];
+        }
+        fields.measures.push(value);
+      } else {
+        fields[name] = value;
+      }
+    });
+
+    bb.on("close", async () => {
+      try {
+        if (!fields.name || !fields.price || !fields.category) {
+          return resolve(
+            NextResponse.json(
+              { error: "Missing required fields" },
+              { status: 400 }
+            )
+          );
+        }
+
+        const picUrls = await Promise.all(filePromises);
+
+        const data = {
+          name: fields.name,
+          price: parseFloat(fields.price),
+          measures: fields.measures || [],
+          category: fields.category,
+          pics: picUrls,
+        };
+
+        console.log("Data to be saved:", data);
+
+        const product = await Prod.create(data);
+        console.log("Product created:", product);
+        resolve(NextResponse.json(product, { status: 201 }));
+      } catch (error) {
+        console.error("Error processing POST request:", error);
+        resolve(
+          NextResponse.json({ error: (error as any).message }, { status: 500 })
+        );
+      }
+    });
+
+    bb.on("error", (error: any) => {
+      console.error("Error parsing form data:", error);
+      reject(
+        NextResponse.json(
+          { error: "Failed to parse form data" },
+          { status: 500 }
+        )
+      );
+    });
+
+    bb.end(buffer);
   });
 }
 
