@@ -21,7 +21,7 @@ export async function GET() {
   return NextResponse.json(products, { status: 200 });
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest): Promise<NextResponse> {
   await connectDB();
 
   const parsedUrl = parse(req.url || "", true);
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
   });
 }
 
-export async function DELETE(req: NextRequest) {
+export async function DELETE(req: NextRequest): Promise<NextResponse> {
   await connectDB();
   const data = await req.json();
 
