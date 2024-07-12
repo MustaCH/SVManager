@@ -21,12 +21,6 @@ export async function GET() {
   return NextResponse.json(products, { status: 200 });
 }
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
 export async function POST(req: NextRequest) {
   await connectDB();
 
